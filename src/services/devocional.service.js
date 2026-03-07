@@ -3,6 +3,7 @@ import { DevocionalUsuarioModel } from "./../models/devocionalUsuario.model.js";
 import { RespuestaModel } from "../models/respuesta.model.js";
 import { PreguntaModel } from "./../models/pregunta.model.js";
 import { ElementoModel } from "./../models/elemento.model.js";
+
 import { TipoElementoModel } from "./../models/tipoElemento.model.js";
 import Boom from "@hapi/boom";
 import { PreguntaUsuarioModel } from "../models/preguntaUsuario.model.js";
@@ -62,6 +63,11 @@ class DevocionalService {
     const devocional = await DevocionalModel.findById(id);
     if (!devocional) throw Boom.notFound("Devocional no encontrado");
 
+    const devocionalUsuario = await DevocionalUsuarioModel.findOne({
+      id_devocional: devocional._id,
+      id_usuario: userId,
+    });
+
     const preguntas = await PreguntaModel.find({
       id_devocional: devocional._id,
     }).sort({ orden: 1 });
@@ -102,10 +108,21 @@ class DevocionalService {
         id_respuesta: respuestasMap[e._id.toString()] || null,
       })),
     }));
-    console.log(preguntasFinal);
+
     return {
       devocional,
       preguntas: preguntasFinal,
+      reflexivo: devocionalUsuario
+        ? {
+            ensenanza: devocionalUsuario.ensenanza || [],
+            curiosidad: devocionalUsuario.curiosidad || [],
+            preguntas: devocionalUsuario.preguntas || [],
+          }
+        : {
+            ensenanza: [],
+            curiosidad: [],
+            preguntas: [],
+          },
     };
   }
   async getDevocionalAnual(usuarioId) {
@@ -156,6 +173,7 @@ class DevocionalService {
     );
 
     const devocionales = await DevocionalModel.find({
+      estado_publicacion: true,
       fecha_publicacion: {
         $gte: inicioMes,
         $lt: finMes,

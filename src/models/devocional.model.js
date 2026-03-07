@@ -15,11 +15,20 @@ const devocionalSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+    /*---------------------*/
+    estado_publicacion: {
+      type: Boolean,
+      default: true,
+    },
+    ensenanza: { type: Number, required: true },
+    curiosidad: { type: Number, required: true },
+    preguntas: { type: Number, required: true },
+    /*---------------------*/
   },
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
 export const DevocionalModel = model("DevocionalModel", devocionalSchema);

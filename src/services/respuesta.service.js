@@ -1,10 +1,37 @@
 import { RespuestaModel } from "./../models/respuesta.model.js";
 import { ElementoModel } from "./../models/elemento.model.js";
 import { TipoElementoModel } from "./../models/tipoElemento.model.js";
+import { DevocionalUsuarioModel } from "./../models/devocionalUsuario.model.js";
+
 import Boom from "@hapi/boom";
 import { PreguntaUsuarioModel } from "../models/preguntaUsuario.model.js";
 class RespuestaService {
-  
+  async createRespuestaReflexiva(
+    id_usuario,
+    id_devocional,
+    ensenanzas,
+    curiosidades,
+    preguntas,
+  ) {
+    const devocionalUsuario = await DevocionalUsuarioModel.findOneAndUpdate(
+      { id_usuario, id_devocional },
+      {
+        ensenanza: ensenanzas,
+        curiosidad: curiosidades,
+        preguntas: preguntas,
+      },
+      {
+        new: true,
+        upsert: true,
+      },
+    );
+    
+    if (!devocionalUsuario) {
+      throw new Error("Devocional no encontrado");
+    }
+
+    return devocionalUsuario;
+  }
   async createRespuesta(data) {
     if (!data || data.length === 0) {
       throw Boom.badRequest("No se enviaron respuestas");

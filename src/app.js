@@ -22,7 +22,7 @@ app.use(helmet({
 app.use(cors({
   origin: function (origin, callback) {    
     if (!origin) return callback(null, true);
-    const allowedOrigins = ["https://devocionalfrontend.onrender.com"];
+    const allowedOrigins = ["https://devocionalfrontend.onrender.com","http://localhost:5173"];
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {

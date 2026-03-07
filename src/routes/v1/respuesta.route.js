@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createRespuesta,
+  createRespuestaReflexiva,
   actualizarRespuesta,
   getOneRespuesta,
   deleteRespuesta,
@@ -10,6 +11,7 @@ import {
   createRespuestaSchema,
   getRespuestaSchema,
   updateRespuestaSchema,
+  createRespuestaReflexivaSchema
 } from "./../../schemas/respuesta.schema.js";
 import validatorHandler from "./../../middlewares/validatorHandler.js";
 
@@ -19,6 +21,11 @@ router.post(
   "/",
   validatorHandler(createRespuestaSchema, "body"),
   createRespuesta
+);
+router.post(
+  "/reflexiva",
+  validatorHandler(createRespuestaReflexivaSchema, "body"),
+  createRespuestaReflexiva
 );
 router.put(
   "/:id",
