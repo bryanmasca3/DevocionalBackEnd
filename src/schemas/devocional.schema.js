@@ -14,9 +14,9 @@ export const createDevocionalSchema = Joi.object({
   descripcion: textLong.required(),
   fecha_publicacion: dateGen.default(Date.now),
   estado_publicacion: booleanGen.default(true),
-  ensenanza: Joi.number().required(),
-  curiosidad: Joi.number().required(),
-  preguntas: Joi.number().required(),
+  ensenanza: Joi.number().optional(),
+  curiosidad: Joi.number().optional(),
+  preguntas: Joi.number().optional(),
 });
 
 export const updateDevocionalSchema = Joi.object({
@@ -24,13 +24,14 @@ export const updateDevocionalSchema = Joi.object({
   descripcion: textLong.optional(),
   fecha_publicacion: dateGen.optional(),
   estado_publicacion: booleanGen.default(true),
-  ensenanza: Joi.number().required(),
-  curiosidad: Joi.number().required(),
-  preguntas: Joi.number().required(),
+  ensenanza: Joi.number().optional(),
+  curiosidad: Joi.number().optional(),
+  preguntas: Joi.number().optional(),
 });
 
 export const getDevocionalchemas = Joi.object({
   id: idGen.required(),
+  idusuario: idGen.optional(),
 });
 
 /* export const createPreguntaDevocionalSchema = Joi.object({
