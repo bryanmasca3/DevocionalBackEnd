@@ -38,6 +38,17 @@ export const actualizarDevocionalUsuario = async (req, res, next) => {
     next(error);
   }
 };
+/* este es para arreglar el bug de la actualizacion de devocional usuario no se usar normalmente*/
+
+
+export const actualizarDevocionalUsuarioRepairBugAll = async (req, res, next) => {
+  try {
+    const response = await devocionalServices.repairAllDevocionalUsuario();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const getOneDevocional = async (req, res, next) => {
   try {
@@ -53,7 +64,7 @@ export const getOneDevocional = async (req, res, next) => {
 };
 
 export const getDevocionales = async (req, res, next) => {
-  try {    
+  try {
     const response = await devocionalServices.getDevocionales();
     res.json(response);
   } catch (error) {
@@ -63,13 +74,14 @@ export const getDevocionales = async (req, res, next) => {
 export const getAllDevocional = async (req, res, next) => {
   try {
     const idUsuario = req.user.sub;
-    const response = await devocionalServices.getAllDevocional(idUsuario);
+    const year = req.query.year;
+const month = req.query.month;
+    const response = await devocionalServices.getAllDevocional(idUsuario, { year, month });
     res.json(response);
   } catch (error) {
     next(error);
   }
 };
-
 
 export const deleteDevocional = async (req, res, next) => {
   try {

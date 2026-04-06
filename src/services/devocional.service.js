@@ -1,4 +1,5 @@
 import { DevocionalModel } from "./../models/devocional.model.js";
+import { UsuarioModel } from "./../models/usuario.model.js";
 import { DevocionalUsuarioModel } from "./../models/devocionalUsuario.model.js";
 import { RespuestaModel } from "../models/respuesta.model.js";
 import { PreguntaModel } from "./../models/pregunta.model.js";
@@ -16,6 +17,15 @@ class DevocionalService {
   async createDevocionalUsuario(data) {
     const response = await DevocionalUsuarioModel.findOneAndUpdate(data);
     return response;
+  }
+  async updateDevocionalUsuarioAllUserAndDevocional() {
+    const devocionales = await DevocionalModel.find();
+    const usuarios = await UsuarioModel.find();
+    const response = await Promise.all(
+      devocionales.map(async (devocional) => {
+        return await this.updateDevocionalUsuario(devocional._id);
+      }),
+    );
   }
   async updateDevocionalUsuario(usuarioId, devocionalId) {
     const pregunta = await PreguntaModel.find({
@@ -50,6 +60,46 @@ class DevocionalService {
     );
     return response;
   }
+
+  /**
+   * Recalcula completed/success con la misma lógica que updateDevocionalUsuario
+   * para cada par (usuario, devocional). Puede tardar si hay muchos registros.
+   */
+  async repairAllDevocionalUsuario() {
+    const [usuarios, devocionales] = await Promise.all([
+      UsuarioModel.find().select("_id").lean(),
+      DevocionalModel.find().select("_id").lean(),
+    ]);
+
+    const totalPairs = usuarios.length * devocionales.length;
+    const errors = [];
+    let ok = 0;
+
+    for (const u of usuarios) {
+      for (const d of devocionales) {
+        try {
+          await this.updateDevocionalUsuario(u._id, d._id);
+          ok += 1;
+        } catch (err) {
+          errors.push({
+            id_usuario: u._id,
+            id_devocional: d._id,
+            message: err.message,
+          });
+        }
+      }
+    }
+
+    return {
+      usuarios: usuarios.length,
+      devocionales: devocionales.length,
+      totalPairs,
+      ok,
+      failed: errors.length,
+      errors,
+    };
+  }
+
   async actualizarDevocional(id, datosAActualizar) {
     const usuarioActualizado = await DevocionalModel.findByIdAndUpdate(
       id,
@@ -161,7 +211,41 @@ class DevocionalService {
 
     return devocionales;
   }
-  async getAllDevocional(usuarioId) {
+  async getAllDevocional(usuarioId, { year, month } = {}) {
+    const now = new Date();
+    const y =
+      year != null ? Number(year) : now.getUTCFullYear();
+    const m =
+      month != null ? Number(month) : now.getUTCMonth() + 1;
+    if (m < 1 || m > 12 || !Number.isFinite(y)) {
+      throw new Error("year o month inválidos");
+    }
+    const inicioMes = new Date(Date.UTC(y, m - 1, 1));
+    const finMes = new Date(Date.UTC(y, m, 1));
+    const devocionales = await DevocionalModel.find({
+      estado_publicacion: true,
+      fecha_publicacion: {
+        $gte: inicioMes,
+        $lt: finMes,
+      },
+    }).sort({ fecha_publicacion: -1 });
+    const devocionalesUsuario = await DevocionalUsuarioModel.find({
+      id_usuario: usuarioId,
+    });
+    const mapaUsuario = new Map(
+      devocionalesUsuario.map((d) => [d.id_devocional.toString(), d]),
+    );
+    const devocionalFinal = devocionales.map((dev) => {
+      const devUsuario = mapaUsuario.get(dev._id.toString());
+      return {
+        ...dev.toObject(),
+        success: devUsuario?.success ?? false,
+        completed: devUsuario?.completed ?? false,
+      };
+    });
+    return devocionalFinal;
+  }
+/*   async getAllDevocional(usuarioId) {
     const now = new Date();
 
     const inicioMes = new Date(
@@ -200,7 +284,7 @@ class DevocionalService {
 
     return devocionalFinal;
   }
-
+ */
   async deleteDevocional(id) {
     await DevocionalModel.findByIdAndDelete(id);
     return true;

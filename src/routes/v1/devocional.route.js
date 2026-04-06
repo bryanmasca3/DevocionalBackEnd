@@ -5,8 +5,9 @@ import {
   getOneDevocional,
   deleteDevocional,
   getAllDevocional,
-  actualizarDevocionalUsuario,  
-  getDevocionales
+  actualizarDevocionalUsuario,
+  getDevocionales,
+  actualizarDevocionalUsuarioRepairBugAll,
 } from "./../../controllers/devocional.controller.js";
 import {
   createDevocionalSchema,
@@ -23,6 +24,7 @@ router.post(
   validatorHandler(createDevocionalSchema, "body"),
   createDevocional,
 );
+router.post("/repair-all-devocional-usuario", actualizarDevocionalUsuarioRepairBugAll);
 router.put(
   "/:id/usuario",
   authMiddleware,
@@ -30,6 +32,7 @@ router.put(
   validatorHandler(updateDevocionalSchema, "body"),
   actualizarDevocionalUsuario,
 );
+
 router.put(
   "/:id",
   validatorHandler(getDevocionalchemas, "params"),
