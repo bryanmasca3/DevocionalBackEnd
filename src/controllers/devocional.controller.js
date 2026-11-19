@@ -27,8 +27,6 @@ export const actualizarDevocionalUsuario = async (req, res, next) => {
   try {
     const { id } = req.params;
     const idUsuario = req.user.sub;
-    console.log(id, idUsuario);
-    console.log("----------------DEVOCIONAL USUARIO------------");
     const response = await devocionalServices.updateDevocionalUsuario(
       idUsuario,
       id,

@@ -29,6 +29,7 @@ class AvanceService {
     return devocionales.map((dev) => ({
       ...dev.toObject(),
       success: estadoMap[dev._id.toString()]?.success ?? false,
+      completed: estadoMap[dev._id.toString()]?.completed ?? false,
     }));
   }
   

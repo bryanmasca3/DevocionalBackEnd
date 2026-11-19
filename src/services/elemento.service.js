@@ -1,66 +1,70 @@
 import { ElementoModel } from "./../models/elemento.model.js";
 import { TipoElementoModel } from "./../models/tipoElemento.model.js";
 import Boom from "@hapi/boom";
+import { eliminarElementos } from "./cascade.service.js";
+
 class ElementoService {
   async createElemento(data) {
-    const response = await ElementoModel.create(data);
-    return response;
+    return ElementoModel.create(data);
   }
 
   async actualizarElemento(id, datosAActualizar) {
-    const elementoActualizado = await ElementoModel.findByIdAndUpdate(
-      id,
-      datosAActualizar,
-      { new: true }
-    );
-
-    return elementoActualizado;
-  }
-  async getOneElemento(id) {
-    const elemento = await ElementoModel.findById(id);
-
+    const elemento = await ElementoModel.findByIdAndUpdate(id, datosAActualizar, {
+      new: true,
+    });
     if (!elemento) throw Boom.notFound("Elemento no encontrado");
-
     return elemento;
   }
-  async getAllElemento(query) {
-    const elementos = await ElementoModel.find(query);
-    return elementos;
+
+  async getOneElemento(id) {
+    const elemento = await ElementoModel.findById(id);
+    if (!elemento) throw Boom.notFound("Elemento no encontrado");
+    return elemento;
+  }
+
+  /** Solo se permite filtrar por id_pregunta (antes se pasaba req.query completo a Mongo). */
+  async getAllElemento(query = {}) {
+    const filtro = {};
+    if (query.id_pregunta) filtro.id_pregunta = String(query.id_pregunta);
+    return ElementoModel.find(filtro);
   }
 
   async deleteElemento(id) {
-    await ElementoModel.findByIdAndDelete(id);
+    const elemento = await ElementoModel.findById(id).select("_id").lean();
+    if (!elemento) throw Boom.notFound("Elemento no encontrado");
+    await eliminarElementos([elemento._id]);
     return true;
   }
 
   async createTipoElemento(data) {
-    const response = await TipoElementoModel.create(data);
-    return response;
+    return TipoElementoModel.create(data);
   }
 
   async actualizarTipoElemento(id, datosAActualizar) {
-    const elementoActualizado = await TipoElementoModel.findByIdAndUpdate(
-      id,
-      datosAActualizar,
-      { new: true }
-    );
-
-    return elementoActualizado;
+    const tipo = await TipoElementoModel.findByIdAndUpdate(id, datosAActualizar, {
+      new: true,
+    });
+    if (!tipo) throw Boom.notFound("Tipo de elemento no encontrado");
+    return tipo;
   }
+
   async getOneTipoElemento(id) {
-    const elemento = await TipoElementoModel.findById(id);
-
-    if (!elemento) throw Boom.notFound("Elemento no encontrado");
-
-    return elemento;
+    const tipo = await TipoElementoModel.findById(id);
+    if (!tipo) throw Boom.notFound("Tipo de elemento no encontrado");
+    return tipo;
   }
+
   async getAllTipoElemento() {
-    const elementos = await TipoElementoModel.find();
-    return elementos;
+    return TipoElementoModel.find();
   }
 
   async deleteTipoElemento(id) {
-    await TipoElementoModel.findByIdAndDelete(id);
+    const enUso = await ElementoModel.exists({ id_tipo: id });
+    if (enUso) {
+      throw Boom.conflict("No se puede eliminar: hay elementos con este tipo");
+    }
+    const tipo = await TipoElementoModel.findByIdAndDelete(id);
+    if (!tipo) throw Boom.notFound("Tipo de elemento no encontrado");
     return true;
   }
 }

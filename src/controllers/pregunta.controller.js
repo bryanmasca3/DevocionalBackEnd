@@ -36,7 +36,6 @@ export const getOnePregunta = async (req, res, next) => {
 
 export const getAllPregunta = async (req, res, next) => {
   try {
-    console.log(req.query);
     const response = await preguntaServices.getAllPregunta(req.query);
     res.json(response);
   } catch (error) {

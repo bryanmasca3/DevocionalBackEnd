@@ -28,7 +28,8 @@ const usuarioSchema = new Schema(
     },
     contrasena: {
       type: String,
-      default: "123456",
+      required: true,
+      select: false, // nunca se devuelve en consultas (usar .select("+contrasena"))
     },
     id_tipo: {
       type: Schema.Types.ObjectId,
@@ -41,5 +42,13 @@ const usuarioSchema = new Schema(
     versionKey: false,
   },
 );
+
+// Por si el documento viene de create(): tampoco se serializa la contraseña
+usuarioSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    delete ret.contrasena;
+    return ret;
+  },
+});
 
 export const UsuarioModel = model("UsuarioModel", usuarioSchema);

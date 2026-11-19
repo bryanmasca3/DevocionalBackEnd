@@ -5,11 +5,11 @@ const preguntaSchema = new Schema(
   {
     id_usuario: {
       type: Schema.Types.ObjectId,
-      ref: "Usuario",
+      ref: "UsuarioModel",
     },
     id_devocional: {
       type: Schema.Types.ObjectId,
-      ref: "Devocional",
+      ref: "DevocionalModel",
       required: true,
     },
     titulo: { type: String, required: true, trim: true },
@@ -19,5 +19,7 @@ const preguntaSchema = new Schema(
   },
   { timestamps: true, versionKey: false },
 );
+
+preguntaSchema.index({ id_devocional: 1, orden: 1 });
 
 export const PreguntaModel = model("PreguntaModel", preguntaSchema);

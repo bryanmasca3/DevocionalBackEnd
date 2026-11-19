@@ -5,9 +5,6 @@ const usuarioServices = new UsuarioService();
 export const createUsuario = async (req, res, next) => {
   try {
     const data = req.body;
-    console.log("----------------------------");
-    console.log(data);
-    console.log("*****************************");
     const response = await usuarioServices.createUsuario(data);
     res.json(response);
   } catch (error) {

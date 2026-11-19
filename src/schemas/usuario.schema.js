@@ -13,8 +13,8 @@ export const  createUsuarioSchema = Joi.object({
   nombre: stringStandard.required(),
  // usuario: stringStandard.required(),
   correo: stringStandard.email().required(),
-  contrasena: stringStandard.optional(), // Mapeado a 'contraseña'
-  id_tipo: stringStandard.required(), // FK a tabla tipo
+  contrasena: stringStandard.optional().allow(""), // vacía = DEFAULT_USER_PASSWORD
+  id_tipo: idGen.required(), // FK a tabla tipo
   login_inicial: booleanGen.optional(),
 });
 
@@ -22,8 +22,8 @@ export const updateUsuarioSchema = Joi.object({
   nombre: stringStandard.optional(),
   //usuario: stringStandard.optional(),
   correo: stringStandard.email().optional(),
-  contrasena: stringStandard.optional(),
-  id_tipo: stringStandard.optional(),
+  contrasena: stringStandard.optional().allow(""), // vacía = no se cambia
+  id_tipo: idGen.optional(),
   login_inicial: booleanGen.optional(),
 });
 export const getUsuarioSchema = Joi.object({

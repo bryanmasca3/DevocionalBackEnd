@@ -9,12 +9,14 @@ const respuestaSchema = new Schema(
     //completed: { type: Boolean, required: true },
     id_elemento: {
       type: Schema.Types.ObjectId,
-      ref: "Elemento",
+      ref: "ElementoModel",
       required: true,
     },
-    id_usuario: { type: Schema.Types.ObjectId, ref: "Usuario", required: true },
+    id_usuario: { type: Schema.Types.ObjectId, ref: "UsuarioModel", required: true },
   },
   { timestamps: false, versionKey: false },
 );
+
+respuestaSchema.index({ id_usuario: 1, id_elemento: 1 });
 
 export const RespuestaModel = model("Respuesta", respuestaSchema);

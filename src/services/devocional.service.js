@@ -4,66 +4,46 @@ import { DevocionalUsuarioModel } from "./../models/devocionalUsuario.model.js";
 import { RespuestaModel } from "../models/respuesta.model.js";
 import { PreguntaModel } from "./../models/pregunta.model.js";
 import { ElementoModel } from "./../models/elemento.model.js";
-
-import { TipoElementoModel } from "./../models/tipoElemento.model.js";
-import Boom from "@hapi/boom";
 import { PreguntaUsuarioModel } from "../models/preguntaUsuario.model.js";
+import Boom from "@hapi/boom";
+import { eliminarDependenciasDevocional } from "./cascade.service.js";
+
 class DevocionalService {
   async createDevocional(data) {
-    const response = await DevocionalModel.create(data);
-    return response;
+    return DevocionalModel.create(data);
   }
 
-  async createDevocionalUsuario(data) {
-    const response = await DevocionalUsuarioModel.findOneAndUpdate(data);
-    return response;
-  }
-  async updateDevocionalUsuarioAllUserAndDevocional() {
-    const devocionales = await DevocionalModel.find();
-    const usuarios = await UsuarioModel.find();
-    const response = await Promise.all(
-      devocionales.map(async (devocional) => {
-        return await this.updateDevocionalUsuario(devocional._id);
-      }),
-    );
-  }
+  /** Recalcula completed/success del devocional para un usuario a partir de sus preguntas. */
   async updateDevocionalUsuario(usuarioId, devocionalId) {
-    const pregunta = await PreguntaModel.find({
-      id_devocional: devocionalId,
-    });
+    const preguntas = await PreguntaModel.find({ id_devocional: devocionalId })
+      .select("_id")
+      .lean();
 
-    const preguntaUsuario = await Promise.all(
-      pregunta.map(async (pregunta) => {
-        const preguntaUsuario = await PreguntaUsuarioModel.findOne({
-          id_pregunta: pregunta._id,
-          id_usuario: usuarioId,
-        });
-        if (!preguntaUsuario) {
-          return {
-            success: false,
-            completed: false,
-          };
-        }
-        return {
-          success: preguntaUsuario.success,
-          completed: preguntaUsuario.completed,
-        };
-      }),
+    const estados = await PreguntaUsuarioModel.find({
+      id_pregunta: { $in: preguntas.map((p) => p._id) },
+      id_usuario: usuarioId,
+    }).lean();
+    const estadoPorPregunta = new Map(
+      estados.map((e) => [String(e.id_pregunta), e]),
     );
-    const completed = preguntaUsuario.every((pregunta) => pregunta.completed);
-    const success = preguntaUsuario.every((pregunta) => pregunta.success);
 
-    const response = await DevocionalUsuarioModel.findOneAndUpdate(
+    const lista = preguntas.map(
+      (p) =>
+        estadoPorPregunta.get(String(p._id)) ?? { success: false, completed: false },
+    );
+    const completed = lista.every((p) => p.completed);
+    const success = lista.every((p) => p.success);
+
+    return DevocionalUsuarioModel.findOneAndUpdate(
       { id_devocional: devocionalId, id_usuario: usuarioId },
-      { completed: completed, success: success },
+      { completed, success },
       { upsert: true, new: true },
     );
-    return response;
   }
 
   /**
-   * Recalcula completed/success con la misma lógica que updateDevocionalUsuario
-   * para cada par (usuario, devocional). Puede tardar si hay muchos registros.
+   * Recalcula completed/success para cada par (usuario, devocional).
+   * Solo para mantenimiento; puede tardar si hay muchos registros.
    */
   async repairAllDevocionalUsuario() {
     const [usuarios, devocionales] = await Promise.all([
@@ -71,7 +51,6 @@ class DevocionalService {
       DevocionalModel.find().select("_id").lean(),
     ]);
 
-    const totalPairs = usuarios.length * devocionales.length;
     const errors = [];
     let ok = 0;
 
@@ -93,7 +72,7 @@ class DevocionalService {
     return {
       usuarios: usuarios.length,
       devocionales: devocionales.length,
-      totalPairs,
+      totalPairs: usuarios.length * devocionales.length,
       ok,
       failed: errors.length,
       errors,
@@ -101,141 +80,100 @@ class DevocionalService {
   }
 
   async actualizarDevocional(id, datosAActualizar) {
-    const usuarioActualizado = await DevocionalModel.findByIdAndUpdate(
-      id,
-      datosAActualizar,
-      { new: true },
-    );
-
-    return usuarioActualizado;
+    const devocional = await DevocionalModel.findByIdAndUpdate(id, datosAActualizar, {
+      new: true,
+    });
+    if (!devocional) throw Boom.notFound("Devocional no encontrado");
+    return devocional;
   }
+
   async getOneDevocional(id, userId) {
     const devocional = await DevocionalModel.findById(id);
     if (!devocional) throw Boom.notFound("Devocional no encontrado");
 
-    const devocionalUsuario = await DevocionalUsuarioModel.findOne({
-      id_devocional: devocional._id,
-      id_usuario: userId,
-    });
-
-    const preguntas = await PreguntaModel.find({
-      id_devocional: devocional._id,
-    }).sort({ orden: 1 });
-
-    const preguntasConElementos = await Promise.all(
-      preguntas.map(async (pregunta) => {
-        const elementos = await ElementoModel.find({
-          id_pregunta: pregunta._id,
-        })
-          .populate("id_tipo")
-          .sort({ orden: 1 });
-
-        return {
-          ...pregunta.toObject(),
-          elementos: elementos,
-        };
+    const [devocionalUsuario, preguntas] = await Promise.all([
+      DevocionalUsuarioModel.findOne({
+        id_devocional: devocional._id,
+        id_usuario: userId,
       }),
-    );
+      PreguntaModel.find({ id_devocional: devocional._id }).sort({ orden: 1 }).lean(),
+    ]);
 
-    const todosElementosIds = preguntasConElementos.flatMap((p) =>
-      p.elementos.map((e) => e._id),
-    );
+    // Una sola consulta para todos los elementos (antes una por pregunta)
+    const elementos = await ElementoModel.find({
+      id_pregunta: { $in: preguntas.map((p) => p._id) },
+    })
+      .populate("id_tipo")
+      .sort({ orden: 1 })
+      .lean();
 
     const respuestas = await RespuestaModel.find({
-      id_elemento: { $in: todosElementosIds },
+      id_elemento: { $in: elementos.map((e) => e._id) },
       id_usuario: userId,
-    });
+    })
+      .sort({ fecha_ingresado: 1 })
+      .lean();
 
     const respuestasMap = {};
     respuestas.forEach((r) => {
-      respuestasMap[r.id_elemento.toString()] = r;
+      respuestasMap[r.id_elemento.toString()] = r; // la más reciente gana
     });
 
-    const preguntasFinal = preguntasConElementos.map((p) => ({
-      ...p,
-      elementos: p.elementos.map((e) => ({
-        ...e.toObject(),
-        id_respuesta: respuestasMap[e._id.toString()] || null,
-      })),
-    }));
+    const elementosPorPregunta = {};
+    elementos.forEach(({ respuesta, ...elemento }) => {
+      const respuestaUsuario = respuestasMap[elemento._id.toString()] || null;
+      const key = elemento.id_pregunta.toString();
+      if (!elementosPorPregunta[key]) elementosPorPregunta[key] = [];
+      elementosPorPregunta[key].push({
+        ...elemento,
+        // La respuesta correcta solo se envía cuando el usuario ya respondió
+        ...(respuestaUsuario ? { respuesta: respuesta ?? "" } : {}),
+        id_respuesta: respuestaUsuario,
+      });
+    });
 
     return {
       devocional,
-      preguntas: preguntasFinal,
-      reflexivo: devocionalUsuario
-        ? {
-            ensenanza: devocionalUsuario.ensenanza || [],
-            curiosidad: devocionalUsuario.curiosidad || [],
-            preguntas: devocionalUsuario.preguntas || [],
-          }
-        : {
-            ensenanza: [],
-            curiosidad: [],
-            preguntas: [],
-          },
+      preguntas: preguntas.map((p) => ({
+        ...p,
+        elementos: elementosPorPregunta[p._id.toString()] || [],
+      })),
+      reflexivo: {
+        ensenanza: devocionalUsuario?.ensenanza || [],
+        curiosidad: devocionalUsuario?.curiosidad || [],
+        preguntas: devocionalUsuario?.preguntas || [],
+      },
     };
   }
-  async getDevocionalAnual(usuarioId) {
-    const now = new Date();
-    const inicioAnio = new Date(now.getFullYear(), 0, 1);
-    const finAnio = new Date(now.getFullYear() + 1, 0, 1);
 
-    const devocionales = await DevocionalModel.find({
-      fecha_publicacion: {
-        $gte: inicioAnio,
-        $lt: finAnio,
-      },
-    });
-
-    const ids = devocionales.map((d) => d._id);
-
-    const estados = await DevocionalUsuarioModel.find({
-      id_devocional: { $in: ids },
-      id_usuario: usuarioId,
-    });
-
-    const estadoMap = {};
-    estados.forEach((e) => {
-      estadoMap[e.id_devocional.toString()] = e;
-    });
-
-    return devocionales.map((dev) => ({
-      ...dev.toObject(),
-      success: estadoMap[dev._id.toString()]?.success ?? false,
-    }));
-  }
   async getDevocionales() {
-    const devocionales = await DevocionalModel.find().sort({
-      fecha_publicacion: -1,
-    });
-
-    return devocionales;
+    return DevocionalModel.find().sort({ fecha_publicacion: -1 });
   }
+
   async getAllDevocional(usuarioId, { year, month } = {}) {
     const now = new Date();
-    const y =
-      year != null ? Number(year) : now.getUTCFullYear();
-    const m =
-      month != null ? Number(month) : now.getUTCMonth() + 1;
-    if (m < 1 || m > 12 || !Number.isFinite(y)) {
-      throw new Error("year o month inválidos");
+    const y = year != null ? Number(year) : now.getUTCFullYear();
+    const m = month != null ? Number(month) : now.getUTCMonth() + 1;
+    if (!Number.isInteger(m) || m < 1 || m > 12 || !Number.isFinite(y)) {
+      throw Boom.badRequest("year o month inválidos");
     }
     const inicioMes = new Date(Date.UTC(y, m - 1, 1));
     const finMes = new Date(Date.UTC(y, m, 1));
+
     const devocionales = await DevocionalModel.find({
       estado_publicacion: true,
-      fecha_publicacion: {
-        $gte: inicioMes,
-        $lt: finMes,
-      },
+      fecha_publicacion: { $gte: inicioMes, $lt: finMes },
     }).sort({ fecha_publicacion: -1 });
+
     const devocionalesUsuario = await DevocionalUsuarioModel.find({
       id_usuario: usuarioId,
+      id_devocional: { $in: devocionales.map((d) => d._id) },
     });
     const mapaUsuario = new Map(
       devocionalesUsuario.map((d) => [d.id_devocional.toString(), d]),
     );
-    const devocionalFinal = devocionales.map((dev) => {
+
+    return devocionales.map((dev) => {
       const devUsuario = mapaUsuario.get(dev._id.toString());
       return {
         ...dev.toObject(),
@@ -243,50 +181,12 @@ class DevocionalService {
         completed: devUsuario?.completed ?? false,
       };
     });
-    return devocionalFinal;
   }
-/*   async getAllDevocional(usuarioId) {
-    const now = new Date();
 
-    const inicioMes = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-    );
-
-    const finMes = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
-    );
-
-    const devocionales = await DevocionalModel.find({
-      estado_publicacion: true,
-      fecha_publicacion: {
-        $gte: inicioMes,
-        $lt: finMes,
-      },
-    }).sort({ fecha_publicacion: -1 });
-
-    const devocionalesUsuario = await DevocionalUsuarioModel.find({
-      id_usuario: usuarioId,
-    });
-
-    const mapaUsuario = new Map(
-      devocionalesUsuario.map((d) => [d.id_devocional.toString(), d]),
-    );
-
-    const devocionalFinal = devocionales.map((dev) => {
-      const devUsuario = mapaUsuario.get(dev._id.toString());
-
-      return {
-        ...dev.toObject(),
-        success: devUsuario?.success ?? false,
-        completed: devUsuario?.completed ?? false,
-      };
-    });
-
-    return devocionalFinal;
-  }
- */
   async deleteDevocional(id) {
-    await DevocionalModel.findByIdAndDelete(id);
+    const devocional = await DevocionalModel.findByIdAndDelete(id);
+    if (!devocional) throw Boom.notFound("Devocional no encontrado");
+    await eliminarDependenciasDevocional(devocional._id);
     return true;
   }
 }

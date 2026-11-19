@@ -1,67 +1,67 @@
-import { ValidationError } from "sequelize"; // Importa los errores que existen
-import boom from "@hapi/boom";
+import mongoose from "mongoose";
+import config from "../config/env.config.js";
 
-// Middleware para loguear todos los errores
+// Loguea todos los errores (los 4xx de Boom en una sola línea)
 export function logErrors(err, req, res, next) {
-  console.log("--- 1. Log Error ---");
-  console.error(err);
-  next(err); // pasa al siguiente middleware de error
-}
-
-// Middleware para manejar errores espec�ficos de Sequelize
-export function ormErrorHandler(err, req, res, next) {
-  console.log("--- 2. ORM Error ---");
-
-  // Si el error es una instancia de ValidationError
-  if (err instanceof ValidationError) {
-    return res.status(409).json({
-      status: 409,
-      message: "Error de validaci�n",
-      errors: err.errors,
-    });
+  const status = err.isBoom ? err.output.statusCode : err.status;
+  if (status && status < 500) {
+    console.warn(`[${req.method} ${req.originalUrl}] ${status} ${err.message}`);
+  } else {
+    console.error(`[${req.method} ${req.originalUrl}]`, err);
   }
-
-  // Verificamos si el error proviene de la conexi�n
-  if (err.name && err.name === "SequelizeConnectionError") {
-    return res.status(500).json({
-      status: 500,
-      message: "Error al conectar con la base de datos",
-      details: err.message,
-    });
-  }
-
-  // Si no es un error conocido, lo pasamos al siguiente middleware
   next(err);
 }
 
-// Middleware para manejar errores de Boom
+const responder = (res, statusCode, error, message, data = null) =>
+  res.status(statusCode).json({ statusCode, error, message, data });
+
+// Errores de Mongoose / MongoDB
+export function ormErrorHandler(err, req, res, next) {
+  if (err instanceof mongoose.Error.ValidationError) {
+    return responder(
+      res,
+      400,
+      "Bad Request",
+      "Error de validación",
+      Object.values(err.errors).map((e) => ({ campo: e.path, mensaje: e.message })),
+    );
+  }
+  if (err instanceof mongoose.Error.CastError) {
+    return responder(res, 400, "Bad Request", `Valor inválido para "${err.path}"`);
+  }
+  if (err?.code === 11000) {
+    const campos = Object.keys(err.keyValue || {}).join(", ");
+    return responder(res, 409, "Conflict", `Ya existe un registro con ese ${campos}`);
+  }
+  next(err);
+}
+
+// Errores de Boom
 export function boomErrorHandler(err, req, res, next) {
-  console.log("--- 3. Boom Error ---");
   if (err.isBoom) {
     const { output, data } = err;
     return res.status(output.statusCode).json({
       ...output.payload,
-      data: data || null, // devolvemos el "data" que contiene el error real
+      data: data || null,
     });
   }
-  next(err); // si no es Boom, pasa al siguiente
+  next(err);
 }
 
-// Middleware para manejar errores generales (cualquier otro error)
+// Cualquier otro error
 export function errorHandler(err, req, res, next) {
-  console.log("--- 4. General Error ---");
   res.status(500).json({
-    status: 500,
-    message: err.message,
-    errors: err.stack,
+    statusCode: 500,
+    error: "Internal Server Error",
+    message: config.IS_PRODUCTION ? "Error interno del servidor" : err.message,
+    ...(config.IS_PRODUCTION ? {} : { errors: err.stack }),
   });
 }
 
-// Middleware para manejar rutas no encontradas (404)
+// Rutas no encontradas (404)
 export function notFoundPageHandler(req, res, next) {
-  console.log("--- 5. 404 Not Found ---");
   res.status(404).json({
-    status: 404,
+    statusCode: 404,
     error: "Not Found",
     message: "La ruta solicitada no existe en el servidor.",
   });

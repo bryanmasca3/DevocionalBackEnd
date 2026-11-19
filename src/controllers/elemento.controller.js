@@ -36,7 +36,6 @@ export const getOneElemento = async (req, res, next) => {
 
 export const getAllElemento = async (req, res, next) => {
   try {
-    console.log(req.query);
     const response = await elementoServices.getAllElemento(req.query);
     res.json(response);
   } catch (error) {

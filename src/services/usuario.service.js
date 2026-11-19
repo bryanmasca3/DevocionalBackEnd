@@ -2,79 +2,87 @@ import { UsuarioModel } from "./../models/usuario.model.js";
 import { TipoUsuarioModel } from "./../models/tipoUsuario.model.js";
 import Boom from "@hapi/boom";
 import bcrypt from "bcryptjs";
+import config from "../config/env.config.js";
+
+const hashear = async (texto) => {
+  const salt = await bcrypt.genSalt(config.BCRYPT_SALT_ROUNDS);
+  return bcrypt.hash(texto, salt);
+};
+
 class UsuarioService {
   async createUsuario(data) {
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(data.contrasena, salt);
-    const response = await UsuarioModel.create({
+    const contrasena = data.contrasena || config.DEFAULT_USER_PASSWORD;
+    if (!contrasena) {
+      throw Boom.badRequest(
+        "Debe enviar una contraseña (o configurar DEFAULT_USER_PASSWORD)",
+      );
+    }
+    return UsuarioModel.create({
       ...data,
-      contrasena: hashedPassword,
+      contrasena: await hashear(contrasena),
     });
-    return response;
   }
 
   async actualizarUsuario(id, datosAActualizar) {
-
-   
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(datosAActualizar.contrasena, salt);
-    const usuarioActualizado = await UsuarioModel.findByIdAndUpdate(
-      id,
-      {
-        ...datosAActualizar,
-        contrasena: hashedPassword,
-      },
-      { new: true },
-    );
-    console.log(usuarioActualizado);
+    const cambios = { ...datosAActualizar };
+    // Solo se cambia la contraseña si se envía una nueva (antes se re-hasheaba el hash)
+    if (cambios.contrasena) {
+      cambios.contrasena = await hashear(cambios.contrasena);
+    } else {
+      delete cambios.contrasena;
+    }
+    const usuarioActualizado = await UsuarioModel.findByIdAndUpdate(id, cambios, {
+      new: true,
+    });
+    if (!usuarioActualizado) throw Boom.notFound("Usuario no encontrado");
     return usuarioActualizado;
   }
+
   async getOneUsuario(id) {
     const usuario = await UsuarioModel.findById(id);
-
     if (!usuario) throw Boom.notFound("Usuario no encontrado");
-
     return usuario;
   }
+
   async getAllUsuario() {
-    const usuarios = await UsuarioModel.find().populate("id_tipo");
-    return usuarios;
+    return UsuarioModel.find().populate("id_tipo");
   }
 
   async deleteUsuario(id) {
-    await UsuarioModel.findByIdAndDelete(id);
+    const usuario = await UsuarioModel.findByIdAndDelete(id);
+    if (!usuario) throw Boom.notFound("Usuario no encontrado");
     return true;
   }
 
   async createTipoUsuario(data) {
-    const response = await TipoUsuarioModel.create(data);
-    return response;
+    return TipoUsuarioModel.create(data);
   }
 
   async actualizarTipoUsuario(id, datosAActualizar) {
-  
-    const usuarioActualizado = await TipoUsuarioModel.findByIdAndUpdate(
-      id,
-      datosAActualizar,
-      { new: true },
-    );
-
-    return usuarioActualizado;
+    const tipo = await TipoUsuarioModel.findByIdAndUpdate(id, datosAActualizar, {
+      new: true,
+    });
+    if (!tipo) throw Boom.notFound("Tipo de usuario no encontrado");
+    return tipo;
   }
+
   async getOneTipoUsuario(id) {
-    const usuario = await TipoUsuarioModel.findById(id);
-
-    if (!usuario) throw Boom.notFound("Usuario no encontrado");
-
-    return usuario;
+    const tipo = await TipoUsuarioModel.findById(id);
+    if (!tipo) throw Boom.notFound("Tipo de usuario no encontrado");
+    return tipo;
   }
+
   async getAllTipoUsuario() {
-    const usuarios = await TipoUsuarioModel.find();
-    return usuarios;
+    return TipoUsuarioModel.find();
   }
 
   async deleteTipoUsuario(id) {
-    await TipoUsuarioModel.findByIdAndDelete(id);
+    const enUso = await UsuarioModel.exists({ id_tipo: id });
+    if (enUso) {
+      throw Boom.conflict("No se puede eliminar: hay usuarios con este tipo");
+    }
+    const tipo = await TipoUsuarioModel.findByIdAndDelete(id);
+    if (!tipo) throw Boom.notFound("Tipo de usuario no encontrado");
     return true;
   }
 }

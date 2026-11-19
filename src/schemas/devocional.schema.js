@@ -4,7 +4,7 @@ import joiObjectid from "joi-objectid";
 const joiOID = joiObjectid(Joi);
 const idGen = joiOID();
 
-const stringStandard = Joi.string().max(255);
+const stringStandard = Joi.string().max(500);
 const textLong = Joi.string();
 const dateGen = Joi.date();
 const booleanGen = Joi.boolean();
@@ -21,9 +21,9 @@ export const createDevocionalSchema = Joi.object({
 
 export const updateDevocionalSchema = Joi.object({
   titulo: stringStandard.optional(),
-  descripcion: textLong.optional(),
+  descripcion: textLong.optional().allow(""),
   fecha_publicacion: dateGen.optional(),
-  estado_publicacion: booleanGen.default(true),
+  estado_publicacion: booleanGen.optional(),
   ensenanza: Joi.number().optional(),
   curiosidad: Joi.number().optional(),
   preguntas: Joi.number().optional(),

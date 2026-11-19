@@ -14,11 +14,10 @@ export const validate = async (req, res, next) => {
 
 export const actualizarContrasena = async (req, res, next) => {
   try {
-
-    
-    const { correo, nuevaContrasena } = req.body;
+    // El usuario se toma del token: nadie puede cambiar la contraseña de otro
+    const { nuevaContrasena } = req.body;
     const response = await loginServices.actualizarContrasena(
-      correo,
+      req.user.sub,
       nuevaContrasena,
     );
     res.json(response);

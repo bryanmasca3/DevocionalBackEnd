@@ -1,8 +1,9 @@
 import fs from "fs";
 import https from "https";
 import http from "http";
-import config from "./config/env.config.js"; 
+import config from "./config/env.config.js";
 import app from "./app.js";
+import { connectDB } from "./libs/mongoose.js";
 
 const SERVER_PORT = config.PORT;
 /* 
@@ -15,8 +16,9 @@ const credentials = { key: privateKey, cert: certificate, ca: [bundle] };
 //const server = http.createServer(credentials, app);
 const server = http.createServer(app);
 
-server.listen(SERVER_PORT, config.DOMAIN, () => {
-    console.log(
-      `Servidor en el puerto ${SERVER_PORT}`
-    );
-  });
+// Primero la BD, luego se aceptan peticiones
+await connectDB();
+
+server.listen(SERVER_PORT, config.HOST, () => {
+  console.log(`Servidor en el puerto ${SERVER_PORT} (${config.NODE_ENV})`);
+});

@@ -15,31 +15,11 @@ import {
   updateDevocionalSchema,
 } from "./../../schemas/devocional.schema.js";
 import validatorHandler from "./../../middlewares/validatorHandler.js";
-import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { authMiddleware, requireAdmin } from "../../middlewares/authMiddleware.js";
 
 const router = Router();
 
-router.post(
-  "/",
-  validatorHandler(createDevocionalSchema, "body"),
-  createDevocional,
-);
-router.post("/repair-all-devocional-usuario", actualizarDevocionalUsuarioRepairBugAll);
-router.put(
-  "/:id/usuario",
-  authMiddleware,
-  validatorHandler(getDevocionalchemas, "params"),
-  validatorHandler(updateDevocionalSchema, "body"),
-  actualizarDevocionalUsuario,
-);
-
-router.put(
-  "/:id",
-  validatorHandler(getDevocionalchemas, "params"),
-  validatorHandler(updateDevocionalSchema, "body"),
-  actualizarDevocional,
-);
-
+/* ====== USUARIO AUTENTICADO ====== */
 router.get("/usuario", authMiddleware, getAllDevocional);
 
 router.get(
@@ -48,9 +28,42 @@ router.get(
   validatorHandler(getDevocionalchemas, "params"),
   getOneDevocional,
 );
-router.get("/", getDevocionales);
+
+// Recalcula el estado (completed/success) del devocional para el usuario del token
+router.put(
+  "/:id/usuario",
+  authMiddleware,
+  validatorHandler(getDevocionalchemas, "params"),
+  actualizarDevocionalUsuario,
+);
+
+/* ====== ADMINISTRADOR ====== */
+router.get("/", requireAdmin, getDevocionales);
+
+router.post(
+  "/",
+  requireAdmin,
+  validatorHandler(createDevocionalSchema, "body"),
+  createDevocional,
+);
+
+router.post(
+  "/repair-all-devocional-usuario",
+  requireAdmin,
+  actualizarDevocionalUsuarioRepairBugAll,
+);
+
+router.put(
+  "/:id",
+  requireAdmin,
+  validatorHandler(getDevocionalchemas, "params"),
+  validatorHandler(updateDevocionalSchema, "body"),
+  actualizarDevocional,
+);
+
 router.delete(
   "/:id",
+  requireAdmin,
   validatorHandler(getDevocionalchemas, "params"),
   deleteDevocional,
 );

@@ -12,8 +12,12 @@ import {
   updatePreguntaSchema,
 } from "./../../schemas/pregunta.schema.js";
 import validatorHandler from "./../../middlewares/validatorHandler.js";
+import { requireAdmin } from "../../middlewares/authMiddleware.js";
 
 const router = Router();
+
+// Todo el CRUD es solo para administradores
+router.use(requireAdmin);
 
 router.post(
   "/",

@@ -11,38 +11,47 @@ import {
   createRespuestaSchema,
   getRespuestaSchema,
   updateRespuestaSchema,
-  createRespuestaReflexivaSchema
+  createRespuestaReflexivaSchema,
 } from "./../../schemas/respuesta.schema.js";
 import validatorHandler from "./../../middlewares/validatorHandler.js";
+import { authMiddleware, requireAdmin } from "../../middlewares/authMiddleware.js";
 
 const router = Router();
 
+/* ====== USUARIO AUTENTICADO (id_usuario se toma del token) ====== */
 router.post(
   "/",
+  authMiddleware,
   validatorHandler(createRespuestaSchema, "body"),
-  createRespuesta
+  createRespuesta,
 );
 router.post(
   "/reflexiva",
+  authMiddleware,
   validatorHandler(createRespuestaReflexivaSchema, "body"),
-  createRespuestaReflexiva
+  createRespuestaReflexiva,
 );
+
+/* ====== ADMINISTRADOR ====== */
 router.put(
   "/:id",
+  requireAdmin,
   validatorHandler(getRespuestaSchema, "params"),
   validatorHandler(updateRespuestaSchema, "body"),
-  actualizarRespuesta
+  actualizarRespuesta,
 );
-router.get("/", getAllRespuesta);
+router.get("/", requireAdmin, getAllRespuesta);
 router.get(
   "/:id",
+  requireAdmin,
   validatorHandler(getRespuestaSchema, "params"),
-  getOneRespuesta
+  getOneRespuesta,
 );
 router.delete(
   "/:id",
+  requireAdmin,
   validatorHandler(getRespuestaSchema, "params"),
-  deleteRespuesta
+  deleteRespuesta,
 );
 
 export default router;

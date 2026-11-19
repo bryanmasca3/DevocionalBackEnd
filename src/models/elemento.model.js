@@ -9,12 +9,14 @@ const elementoSchema = new Schema(
     descripcion: { type: String, trim: true },
     id_pregunta: {
       type: Schema.Types.ObjectId,
-      ref: "Pregunta",
+      ref: "PreguntaModel",
       required: true,
     },
     id_tipo: { type: Schema.Types.ObjectId, ref: "TipoElemento" },
   },
   { timestamps: false, versionKey: false },
 );
+
+elementoSchema.index({ id_pregunta: 1, orden: 1 });
 
 export const ElementoModel = model("ElementoModel", elementoSchema);

@@ -4,9 +4,8 @@ const respuestaServices = new RespuestaService();
 
 export const createRespuesta = async (req, res, next) => {
   try {
-    const data = req.body;
-
-    const response = await respuestaServices.createRespuesta(data);
+    // El usuario se toma del token, no del body
+    const response = await respuestaServices.createRespuesta(req.body, req.user.sub);
     res.json(response);
   } catch (error) {
     next(error);
@@ -14,10 +13,15 @@ export const createRespuesta = async (req, res, next) => {
 };
 export const createRespuestaReflexiva = async (req, res, next) => {
   try {
-    const { id_usuario, id_devocional, ensenanzas, curiosidades, preguntas } =
-      req.body;
+    const { id_devocional, ensenanzas, curiosidades, preguntas } = req.body;
 
-    const response = await respuestaServices.createRespuestaReflexiva(id_usuario, id_devocional, ensenanzas, curiosidades, preguntas);
+    const response = await respuestaServices.createRespuestaReflexiva(
+      req.user.sub,
+      id_devocional,
+      ensenanzas,
+      curiosidades,
+      preguntas,
+    );
     res.json(response);
   } catch (error) {
     next(error);

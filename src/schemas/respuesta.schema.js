@@ -8,9 +8,9 @@ const textLong = Joi.string().trim().min(1);
 const respuestaItemSchema = Joi.object({
   id_elemento: idGen.required(),
   texto_ingresado: textLong.required(),
-  id_pregunta: idGen.optional(),
-  //success: textLong.required(),
-  id_usuario: idGen.required(),
+  id_pregunta: idGen.required(),
+  // Se ignora: el usuario se toma del token. Se acepta para no romper el frontend.
+  id_usuario: idGen.optional(),
 });
 
 export const createRespuestaSchema = Joi.array()
@@ -21,14 +21,10 @@ export const createRespuestaSchema = Joi.array()
 
 
 export const createRespuestaReflexivaSchema = Joi.object({
-  id_usuario: Joi.string()
-    .required()
-    .messages({
-      "string.empty": "El id del usuario es obligatorio",
-      "any.required": "El id del usuario es obligatorio",
-    }),
+  // Se ignora: el usuario se toma del token. Se acepta para no romper el frontend.
+  id_usuario: idGen.optional(),
 
-  id_devocional: Joi.string()
+  id_devocional: idGen
     .required()
     .messages({
       "string.empty": "El id del devocional es obligatorio",
@@ -57,7 +53,11 @@ export const createRespuestaReflexivaSchema = Joi.object({
     }),
 });
 
-export const updateRespuestaSchema = respuestaItemSchema;
+export const updateRespuestaSchema = Joi.object({
+  id_elemento: idGen.optional(),
+  texto_ingresado: textLong.optional(),
+  success: Joi.boolean().optional(),
+});
 
 export const getRespuestaSchema = Joi.object({
   id: idGen.required(),
